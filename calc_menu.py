@@ -57,7 +57,7 @@ class MatrixCalculator: #this is the physical window
         self.op_combobox.pack(side=tk.LEFT)
         self.op_combobox.bind('<<ComboboxSelected>>', self.on_operation_selected)
 
-        #FIX SCREEN SIZE, DONT HAVE POPUPS
+        #FIX SCREEN SIZE, DONT HAVE
         #makes a popup for tolerance and stopping criteria if Gauss Seidel or Jacobi is selected
         self.tolerance = tk.DoubleVar(value=0.001)
         self.stop = tk.IntVar(value=1)
@@ -131,6 +131,56 @@ class MatrixCalculator: #this is the physical window
                 return False
         print("Matrix is diagonally dominant.")
         return True
+
+    def on_operation_selected(self, event=None):
+        op = self.operation.get()
+        if op in ("Gauss Seidel", "Jacobi"):
+            self.open_iter_popup(op)
+        else:
+            # if popup exists, close it when not needed
+            if self._iter_popup is not None and tk.Toplevel.winfo_exists(self._iter_popup):
+                try:
+                    self._iter_popup.destroy()
+                except Exception:
+                    self._iter_popup = None
+
+    def open_iter_popup(self, op_name):
+        # If already open, bring to front
+        if self._iter_popup is not None and tk.Toplevel.winfo_exists(self._iter_popup):
+            try:
+                self._iter_popup.lift()
+                return
+            except Exception:
+                self._iter_popup = None
+
+        popup = tk.Toplevel(self.root)
+        popup.title(f"{op_name} Parameters")
+        popup.transient(self.root)
+        popup.grab_set()
+
+        tk.Label(popup, text="Tolerance:").grid(row=0, column=0, padx=5, pady=5, sticky='w')
+        tol_entry = tk.Entry(popup, textvariable=self.tolerance, width=20)
+        tol_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        tk.Label(popup, text="Stopping Criteria:").grid(row=1, column=0, padx=5, pady=5, sticky='w')
+        ttk.Combobox(popup, textvariable=self.stop, values=[1, 2, 3, 4], width=17).grid(row=1, column=1, padx=5, pady=5)
+
+        btn_frame = tk.Frame(popup)
+        btn_frame.grid(row=2, column=0, columnspan=2, pady=10)
+
+        def save_and_close():
+            try:
+                _ = float(self.tolerance.get())
+                _ = int(self.stop.get())
+            except Exception:
+                messagebox.showerror("Error", "Invalid tolerance or stopping criteria")
+                return
+            popup.destroy()
+
+        tk.Button(btn_frame, text="Save", command=save_and_close).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Cancel", command=popup.destroy).pack(side=tk.LEFT, padx=5)
+
+        self._iter_popup = popup
 
     #this is where we begin calculation
     def calculate(self):
