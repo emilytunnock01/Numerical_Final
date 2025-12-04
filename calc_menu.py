@@ -200,6 +200,49 @@ class MatrixCalculator: #this is the physical window
         is_diagonally_dominant = self.is_diagonally_dominant(mat)
 
         #if student_name == "Ashlee":
+        if student_name == "Ashlee":
+            try:
+                if op == "Gauss Jordan":
+                    from ashlees_functions import gauss_jordan_pp
+                    reduced, solution = gauss_jordan_pp(mat)
+                    result = {"Reduced Matrix": reduced, "Solution": solution}
+
+                elif op == "Gauss Partial Pivot":
+                    from ashlees_functions import gaussian_elimination_pp
+                    solution = gaussian_elimination_pp(mat)
+                    result = {"Solution": solution}
+
+                elif op == "Gauss Seidel":
+                    from ashlees_functions import gauss_seidel_iter
+                    tol = float(self.tolerance.get())
+                    res = gauss_seidel_iter(mat, tol)
+                    result = {
+                        "Solution": res["x"],
+                        "Iterations": res["iterations"],
+                        "Approx MAE": res["approx_mae"],
+                        "Approx RMSE": res["approx_rmse"],
+                        "True MAE": res["true_mae"],
+                        "True RMSE": res["true_rmse"],
+                    }
+
+                elif op == "Jacobi":
+                    from ashlees_functions import jacobi_iter
+                    tol = float(self.tolerance.get())
+                    res = jacobi_iter(mat, tol)
+                    result = {
+                        "Solution": res["x"],
+                        "Iterations": res["iterations"],
+                        "Approx MAE": res["approx_mae"],
+                        "Approx RMSE": res["approx_rmse"],
+                        "True MAE": res["true_mae"],
+                        "True RMSE": res["true_rmse"],
+                    }
+
+                # Update UI
+                self.result_label.config(text=f"Result:\n{result}")
+
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
         
         #use the files created by emily for the calculations
         if student_name == "Emily":
