@@ -123,6 +123,7 @@ class MatrixCalculator: #this is the physical window
             return True
     
     def is_diagonally_dominant(self, matrix):
+        # Returns a warning message string if not dominant, otherwise None
         n = len(matrix)
         for i in range(n):
             row_sum = sum(abs(matrix[i][j]) for j in range(n) if j != i)
@@ -195,27 +196,48 @@ class MatrixCalculator: #this is the physical window
         mat = np.array(mat)
         op = self.operation.get()
 
+        # --- Get status messages to display to the user ---
+        messages = []
         #call to check
         is_matrix_singular = self.is_matrix_singular(mat)
         is_diagonally_dominant = self.is_diagonally_dominant(mat)
+        singular_msg = self.is_matrix_singular(mat[:, :-1]) # Check the A matrix part
+        if singular_msg:
+            messages.append(singular_msg)
+        
+        dominant_msg = self.is_diagonally_dominant(mat[:, :-1]) # Check the A matrix part
+        if dominant_msg:
+            messages.append(dominant_msg)
 
-        #if student_name == "Ashlee":
+        
+        result_text = "\n".join(messages)
         if student_name == "Ashlee":
             try:
                 if op == "Gauss Jordan":
                     from ashlees_functions import gauss_jordan_pp
-                    reduced, solution = gauss_jordan_pp(mat)
-                    result = {"Reduced Matrix": reduced, "Solution": solution}
+                    solution = gauss_jordan_pp(mat)
+                    solution = [float(x) for x in solution]
+                    result = solution
+                
+                    
 
                 elif op == "Gauss Partial Pivot":
                     from ashlees_functions import gaussian_elimination_pp
                     solution = gaussian_elimination_pp(mat)
-                    result = {"Solution": solution}
+                    solution = [float(x) for x in solution]
+                    result = solution
 
                 elif op == "Gauss Seidel":
                     from ashlees_functions import gauss_seidel_iter
                     tol = float(self.tolerance.get())
                     res = gauss_seidel_iter(mat, tol)
+                    res["x"] = [float(x) for x in res["x"]]
+                    # These are single values, not lists. No loop needed.
+                    res["iterations"] = float(res["iterations"])
+                    res["approx_mae"] = float(res["approx_mae"])
+                    res["approx_rmse"] = float(res["approx_rmse"])
+                    res["true_mae"] = float(res["true_mae"])
+                    res["true_rmse"] = float(res["true_rmse"])
                     result = {
                         "Solution": res["x"],
                         "Iterations": res["iterations"],
@@ -229,17 +251,25 @@ class MatrixCalculator: #this is the physical window
                     from ashlees_functions import jacobi_iter
                     tol = float(self.tolerance.get())
                     res = jacobi_iter(mat, tol)
+                    res["x"] = [float(x) for x in res["x"]]
+                    res["iterations"] = float(res["iterations"])
+                    res["approx_mae"] = float(res["approx_mae"])
+                    res["approx_rmse"] = float(res["approx_rmse"])
+                    res["true_mae"] = float(res["true_mae"])
+                    res["true_rmse"] = float(res["true_rmse"])
                     result = {
-                        "Solution": res["x"],
-                        "Iterations": res["iterations"],
+                        "Soltuion": res["x"],
+                        "Iterations" : res["iterations"],
                         "Approx MAE": res["approx_mae"],
                         "Approx RMSE": res["approx_rmse"],
                         "True MAE": res["true_mae"],
                         "True RMSE": res["true_rmse"],
                     }
 
-                # Update UI
+                
                 self.result_label.config(text=f"Result:\n{result}")
+                result_text += f"\n\nResult:\n{result}"
+                self.result_label.config(text=result_text)
 
             except Exception as e:
                 messagebox.showerror("Error", str(e))
@@ -267,6 +297,8 @@ class MatrixCalculator: #this is the physical window
                 
                 # Update UI with result
                 self.result_label.config(text=f"Result:\n{result}")
+                result_text += f"\n\nResult:\n{result}"
+                self.result_label.config(text=result_text)
 
             except Exception as e:
                 messagebox.showerror("Error", str(e))
