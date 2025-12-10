@@ -1,96 +1,124 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-# Matrix Calculator GUI using Tkinter
-# -----------------------------------
-# Features:
-# - User chooses matrix size (rows & columns)
-# - User enters all matrix values
-# - Dropdown menu selects operation: Determinant, Transpose, Trace
-# - Uses NumPy for calculations
 
-
-class MatrixCalculator: #this is the physical window
+class MatrixCalculator:
     def __init__(self, root):
         self.root = root
         self.root.title("Matrix Calculator")
 
-        #DROPDOWN TO SELECT WHOSE ALGORTITHMS TO BE USED
+
+        # ------------------------------------------------------
+        # STUDENT DROPDOWN
+        # ------------------------------------------------------
         student = ["Ashlee", "Emily"]
         self.student = tk.StringVar(value=student[0])
+
+
         student_frame = tk.Frame(root)
         student_frame.pack(pady=10)
+
+
         tk.Label(student_frame, text="Student Calculator:").pack(side=tk.LEFT)
         ttk.Combobox(student_frame, textvariable=self.student, values=student, width=15).pack(side=tk.LEFT)
 
-        # Variables to store user-selected matrix size
+
+        # ------------------------------------------------------
+        # MATRIX SIZE INPUT
+        # ------------------------------------------------------
         self.rows = tk.IntVar(value=2)
         self.cols = tk.IntVar(value=2)
 
-        # --- MATRIX SIZE INPUTS ---
+
         size_frame = tk.Frame(root)
         size_frame.pack(pady=10)
+
 
         tk.Label(size_frame, text="Rows:").grid(row=0, column=0)
         tk.Entry(size_frame, textvariable=self.rows, width=5).grid(row=0, column=1)
 
+
         tk.Label(size_frame, text="Cols:").grid(row=0, column=2)
         tk.Entry(size_frame, textvariable=self.cols, width=5).grid(row=0, column=3)
 
-        # Button rebuilds matrix input fields
+
         tk.Button(size_frame, text="Set Size", command=self.build_matrix_inputs).grid(row=0, column=4, padx=10)
 
-        # Frame to hold matrix entry widgets
+
+        # ------------------------------------------------------
+        # MATRIX ENTRY GRID
+        # ------------------------------------------------------
         self.matrix_frame = tk.Frame(root)
         self.matrix_frame.pack(pady=10)
+        self.inputs = []
+        self.build_matrix_inputs()
 
-        # Dropdown operations available
+
+        # ------------------------------------------------------
+        # OPERATION DROPDOWN
+        # ------------------------------------------------------
         operations = ["Gauss Jordan", "Gauss Partial Pivot", "Gauss Seidel", "Jacobi"]
         self.operation = tk.StringVar(value=operations[0])
 
-        # Operation selection dropdown
+
         op_frame = tk.Frame(root)
         op_frame.pack(pady=10)
 
+
         tk.Label(op_frame, text="Operation:").pack(side=tk.LEFT)
+
+
         self.op_combobox = ttk.Combobox(op_frame, textvariable=self.operation, values=operations, width=15)
         self.op_combobox.pack(side=tk.LEFT)
         self.op_combobox.bind('<<ComboboxSelected>>', self.on_operation_selected)
 
-        #FIX SCREEN SIZE, DONT HAVE
-        #makes a popup for tolerance and stopping criteria if Gauss Seidel or Jacobi is selected
+
+        # ------------------------------------------------------
+        # ITERATIVE METHOD POPUP VARIABLES
+        # ------------------------------------------------------
         self.tolerance = tk.DoubleVar(value=0.001)
-        self.stop = tk.IntVar(value=1)
+
+
+        # STOPPING CRITERIA AS STRING
+        self.stop = tk.StringVar(value="approximate MAE")
+
+
+        # Text-to-number mapping
+        self.stop_map = {
+            "approximate MAE": 1,
+            "approximate RMSE": 2,
+            "true MAE": 3,
+            "true RMSE": 4
+        }
+
+
+        self.starting_guess = None
         self._iter_popup = None
 
 
-
-        # Button to compute result
+        # ------------------------------------------------------
+        # CALCULATE BUTTON + RESULT LABEL
+        # ------------------------------------------------------
         tk.Button(root, text="Calculate", command=self.calculate).pack(pady=10)
 
-        # Output label
+
         self.result_label = tk.Label(root, text="Result will appear here.")
         self.result_label.pack(pady=10)
 
-        # List to store Entry widgets
-        self.inputs = []
 
-        # Create initial matrix input fields
-        self.build_matrix_inputs()
-
-    # --------------------------------------------
-    # Create Entry widgets for matrix values
-    # --------------------------------------------
+    # ------------------------------------------------------
+    # BUILD MATRIX INPUT GRID
+    # ------------------------------------------------------
     def build_matrix_inputs(self):
-        # Clear old entry fields
         for widget in self.matrix_frame.winfo_children():
             widget.destroy()
-        self.inputs = []
 
+
+        self.inputs = []
         r = self.rows.get()
         c = self.cols.get()
 
-        # Create a grid of Entry widgets
+
         for i in range(r):
             row_list = []
             for j in range(c):
@@ -99,120 +127,161 @@ class MatrixCalculator: #this is the physical window
                 row_list.append(entry)
             self.inputs.append(row_list)
 
-    # --------------------------------------------
-    # Convert Entry widgets to a 2D Python list
-    # --------------------------------------------
+
+    # ------------------------------------------------------
+    # GET MATRIX AS 2D FLOAT LIST
+    # ------------------------------------------------------
     def get_matrix(self):
         try:
-            return [[float(self.inputs[i][j].get()) for j in range(self.cols.get())] for i in range(self.rows.get())]
-        except ValueError:
-            messagebox.showerror("Error", "Matrix must contain numbers only.")
+            return [[float(self.inputs[i][j].get())
+                     for j in range(self.cols.get())]
+                    for i in range(self.rows.get())]
+        except:
+            messagebox.showerror("Error", "Matrix must contain valid numbers.")
             return None
-    
 
-    #per the requirements we check if singular and diagonally dominant
-    #NEED TO DO: HAVE PRINT STATEMENTS BE SEEN ON THE GUI
+
+    # ------------------------------------------------------
+    # MATRIX CHECKS
+    # ------------------------------------------------------
     def is_matrix_singular(self, matrix):
         import numpy as np
         try:
             np.linalg.inv(matrix)
-            print("Matrix is not singular.")
             return False
-        except np.linalg.LinAlgError:
-            print("Matrix is singular.")
+        except:
             return True
-    
+
+
     def is_diagonally_dominant(self, matrix):
-        # Returns a warning message string if not dominant, otherwise None
         n = len(matrix)
         for i in range(n):
             row_sum = sum(abs(matrix[i][j]) for j in range(n) if j != i)
             if abs(matrix[i][i]) < row_sum:
-                print("WARNING: Matrix is not diagonally dominant.")
                 return False
-        print("Matrix is diagonally dominant.")
         return True
 
+
+    # ------------------------------------------------------
+    # POPUP FOR TOLERANCE, STOPPING CRITERIA, STARTING GUESS
+    # ------------------------------------------------------
     def on_operation_selected(self, event=None):
         op = self.operation.get()
         if op in ("Gauss Seidel", "Jacobi"):
             self.open_iter_popup(op)
         else:
-            # if popup exists, close it when not needed
-            if self._iter_popup is not None and tk.Toplevel.winfo_exists(self._iter_popup):
-                try:
-                    self._iter_popup.destroy()
-                except Exception:
-                    self._iter_popup = None
+            if self._iter_popup and tk.Toplevel.winfo_exists(self._iter_popup):
+                self._iter_popup.destroy()
+
 
     def open_iter_popup(self, op_name):
-        # If already open, bring to front
-        if self._iter_popup is not None and tk.Toplevel.winfo_exists(self._iter_popup):
-            try:
-                self._iter_popup.lift()
-                return
-            except Exception:
-                self._iter_popup = None
+
+
+        if self._iter_popup and tk.Toplevel.winfo_exists(self._iter_popup):
+            self._iter_popup.lift()
+            return
+
 
         popup = tk.Toplevel(self.root)
         popup.title(f"{op_name} Parameters")
         popup.transient(self.root)
         popup.grab_set()
 
-        tk.Label(popup, text="Tolerance:").grid(row=0, column=0, padx=5, pady=5, sticky='w')
-        tol_entry = tk.Entry(popup, textvariable=self.tolerance, width=20)
-        tol_entry.grid(row=0, column=1, padx=5, pady=5)
 
-        tk.Label(popup, text="Stopping Criteria:").grid(row=1, column=0, padx=5, pady=5, sticky='w')
-        ttk.Combobox(popup, textvariable=self.stop, values=[1, 2, 3, 4], width=17).grid(row=1, column=1, padx=5, pady=5)
+        # TOLERANCE
+        tk.Label(popup, text="Tolerance:").grid(row=0, column=0, padx=5, pady=5)
+        tk.Entry(popup, textvariable=self.tolerance, width=20).grid(row=0, column=1, padx=5, pady=5)
 
-        btn_frame = tk.Frame(popup)
-        btn_frame.grid(row=2, column=0, columnspan=2, pady=10)
 
-        def save_and_close():
+        # STOPPING CRITERIA
+        tk.Label(popup, text="Stopping Criteria:").grid(row=1, column=0, padx=5, pady=5)
+        criteria_options = list(self.stop_map.keys())
+
+
+        ttk.Combobox(
+            popup, textvariable=self.stop, values=criteria_options, width=20
+        ).grid(row=1, column=1, padx=5, pady=5)
+
+
+        # STARTING APPROXIMATION INPUT
+        tk.Label(popup, text="Starting Approximation (comma-separated):").grid(row=2, column=0, padx=5, pady=5)
+
+
+        start_var = tk.StringVar()
+        tk.Entry(popup, textvariable=start_var, width=25).grid(row=2, column=1, padx=5, pady=5)
+
+
+        # AUTO-GENERATE BUTTON
+        def auto_generate():
+            n = self.rows.get()
+            start_var.set(",".join(["0"] * n))
+
+
+        tk.Button(popup, text="Auto Zero Vector", command=auto_generate).grid(row=3, column=0, columnspan=2, pady=5)
+
+
+        # SAVE BUTTON
+        def save_close():
             try:
-                _ = float(self.tolerance.get())
-                _ = int(self.stop.get())
-            except Exception:
-                messagebox.showerror("Error", "Invalid tolerance or stopping criteria")
+                float(self.tolerance.get())
+            except:
+                messagebox.showerror("Error", "Invalid tolerance value.")
                 return
+
+
+            # Parse starting guess
+            text = start_var.get().strip()
+            if text:
+                try:
+                    self.starting_guess = [float(x) for x in text.split(",")]
+                except:
+                    messagebox.showerror("Error", "Invalid starting approximation.")
+                    return
+            else:
+                self.starting_guess = None
+
+
             popup.destroy()
 
-        tk.Button(btn_frame, text="Save", command=save_and_close).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="Cancel", command=popup.destroy).pack(side=tk.LEFT, padx=5)
+
+        tk.Button(popup, text="Save", command=save_close).grid(row=4, column=0, pady=10)
+        tk.Button(popup, text="Cancel", command=popup.destroy).grid(row=4, column=1, pady=10)
+
 
         self._iter_popup = popup
 
-    #this is where we begin calculation
+
+    # ------------------------------------------------------
+    # MAIN CALCULATION
+    # ------------------------------------------------------
     def calculate(self):
         import numpy as np
 
-        student_name = self.student.get()
 
+        student_name = self.student.get()
         mat = self.get_matrix()
         if mat is None:
             return
 
+
         mat = np.array(mat)
         op = self.operation.get()
 
-        # --- Get status messages to display to the user ---
-        messages = []
-        #call to check
-        is_matrix_singular = self.is_matrix_singular(mat)
-        is_diagonally_dominant = self.is_diagonally_dominant(mat)
-        singular_msg = self.is_matrix_singular(mat[:, :-1]) # Check the A matrix part
-        if singular_msg:
-            messages.append(singular_msg)
-        
-        dominant_msg = self.is_diagonally_dominant(mat[:, :-1]) # Check the A matrix part
-        if dominant_msg:
-            messages.append(dominant_msg)
+
+        # SINGULAR CHECK
+        if self.is_matrix_singular(mat):
+            messagebox.showwarning("Warning", "Matrix may be singular.")
+
+
+        # ITERATIVE METHODS NEED CHECKS
+        if op in ("Gauss Seidel", "Jacobi") and not self.is_diagonally_dominant(mat):
+            messagebox.showwarning("Warning", "Matrix is not diagonally dominant.")
+
 
         
-        result_text = "\n".join(messages)
-        if student_name == "Ashlee":
-            try:
+        try:            
+            if student_name == "Ashlee":
+            
                 if op == "Gauss Jordan":
                     from ashlees_functions import gauss_jordan_pp
                     solution = gauss_jordan_pp(mat)
@@ -265,43 +334,49 @@ class MatrixCalculator: #this is the physical window
                         "True MAE": res["true_mae"],
                         "True RMSE": res["true_rmse"],
                     }
-
                 
-                self.result_label.config(text=f"Result:\n{result}")
-                result_text += f"\n\nResult:\n{result}"
-                self.result_label.config(text=result_text)
+                text = f"Result:\n{result}"
+                self.result_label.config(text=text)
 
-            except Exception as e:
+
+        except Exception as e:
                 messagebox.showerror("Error", str(e))
         
         #use the files created by emily for the calculations
         if student_name == "Emily":
+            
             try:
+                
                 if op == "Gauss Jordan":
                     from emilys_functions import gauss_jordan_elimination
-                    result, solution = gauss_jordan_elimination(mat)
+                    result, sol = gauss_jordan_elimination(mat)
+
+
                 elif op == "Gauss Partial Pivot":
                     from emilys_functions import gaussian_elimination_partial_pivot
-                    result, solution = gaussian_elimination_partial_pivot(mat)
+                    result, sol = gaussian_elimination_partial_pivot(mat)
+
                 elif op == "Gauss Seidel":
                     from emilys_functions import gauss_seidel
                     tol = float(self.tolerance.get())
-                    stop_crit = int(self.stop.get())
-                    result = gauss_seidel(mat, tol, stop_crit)
+                    stop_crit = self.stop_map[self.stop.get()]
+                    sol = gauss_seidel(mat, tol, stop_crit)
+
+
                 elif op == "Jacobi":
                     from emilys_functions import jacobi_method
                     tol = float(self.tolerance.get())
-                    stop_crit = int(self.stop.get())
-                    result = jacobi_method(mat, tol, stop_crit)
+                    stop_crit = self.stop_map[self.stop.get()]
+                    sol = jacobi_method(mat, tol, stop_crit)
 
-                
-                # Update UI with result
-                self.result_label.config(text=f"Result:\n{result}")
-                result_text += f"\n\nResult:\n{result}"
-                self.result_label.config(text=result_text)
+
+                self.result_label.config(text=f"{sol}")
+
 
             except Exception as e:
-                messagebox.showerror("Error", str(e))
+                    messagebox.showerror("Error", str(e))
+
+                   
 
 
 # --------------------------------------------
