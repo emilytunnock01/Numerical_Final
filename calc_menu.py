@@ -234,17 +234,6 @@ class MatrixCalculator:
 
 
 
-    
-
-    
-      
-
-
-
-
-    
-
-
 #MATRIX CHECKS - PROJECT REQUIREMENTS
     def is_matrix_singular(self, matrix):
         import numpy as np
@@ -278,79 +267,58 @@ class MatrixCalculator:
 
         
     #check the matrix and provide warnings as needed
-        # SINGULAR CHECK
-        if self.is_matrix_singular(mat):
-            messagebox.showwarning("Warning", "Matrix may be singular.")
-
-
         # ITERATIVE METHODS NEED CHECKS
         if op in ("Gauss Seidel", "Jacobi") and not self.is_diagonally_dominant(mat):
-            messagebox.showwarning("Warning", "Matrix is not diagonally dominant.")
+            messagebox.showwarning("Warning", "Matrix is not diagonally dominant, convergence not gaurenteed.")
 
 
     #FUNCTION CALLS
+        #FUNCTION CALLS
         try:            
             if student_name == "Ashlee":
             
                 if op == "Gauss Jordan":
                     from ashlees_functions import gauss_jordan_pp
-                    solution = gauss_jordan_pp(mat)
-                    solution = [float(x) for x in solution]
-                    result = solution
+                    roots, TMAE = gauss_jordan_pp(mat)
+                    roots = [float(r) for r in roots]
+                    TMAE = float(TMAE)
+                    result = f"Roots: {roots}\nTrue Mean Absolute Error: {TMAE}"
                 
                     
 
                 elif op == "Gauss Partial Pivot":
                     from ashlees_functions import gaussian_elimination_pp
-                    solution = gaussian_elimination_pp(mat)
-                    solution = [float(x) for x in solution]
-                    result = solution
+                    roots, TMAE = gaussian_elimination_pp(mat)
+                    roots = [float(r) for r in roots]
+                    TMAE = float(TMAE)
+                    result = f"Roots: {roots}\nTrue Mean Absolute Error: {TMAE}"
 
                 elif op == "Gauss Seidel":
                     from ashlees_functions import gauss_seidel_iter
                     tol = float(self.tolerance.get())
-                    res = gauss_seidel_iter(mat, tol)
-                    res["x"] = [float(x) for x in res["x"]]
-                    # These are single values, not lists. No loop needed.
-                    res["iterations"] = float(res["iterations"])
-                    res["approx_mae"] = float(res["approx_mae"])
-                    res["approx_rmse"] = float(res["approx_rmse"])
-                    res["true_mae"] = float(res["true_mae"])
-                    res["true_rmse"] = float(res["true_rmse"])
-                    result = {
-                        "Solution": res["x"],
-                        "Iterations": res["iterations"],
-                        "Approx MAE": res["approx_mae"],
-                        "Approx RMSE": res["approx_rmse"],
-                        "True MAE": res["true_mae"],
-                        "True RMSE": res["true_rmse"],
-                    }
+                    stop_crit = self.stop_map[self.stop.get()]
+                    x0 = np.array(self.starting_guess_list) if self.starting_guess_list else None
+                    roots, TMAE = gauss_seidel_iter(mat, tol, stop=stop_crit, x0=x0)
+                    roots = [float(r) for r in roots]
+                    TMAE = float(TMAE)
+                    result = f"Roots: {(roots)}\nTrue Mean Absolute Error: {TMAE}"
 
                 elif op == "Jacobi":
                     from ashlees_functions import jacobi_iter
                     tol = float(self.tolerance.get())
-                    res = jacobi_iter(mat, tol)
-                    res["x"] = [float(x) for x in res["x"]]
-                    res["iterations"] = float(res["iterations"])
-                    res["approx_mae"] = float(res["approx_mae"])
-                    res["approx_rmse"] = float(res["approx_rmse"])
-                    res["true_mae"] = float(res["true_mae"])
-                    res["true_rmse"] = float(res["true_rmse"])
-                    result = {
-                        "Soltuion": res["x"],
-                        "Iterations" : res["iterations"],
-                        "Approx MAE": res["approx_mae"],
-                        "Approx RMSE": res["approx_rmse"],
-                        "True MAE": res["true_mae"],
-                        "True RMSE": res["true_rmse"],
-                    }
+                    stop_crit = self.stop_map[self.stop.get()]
+                    x0 = np.array(self.starting_guess_list) if self.starting_guess_list else None
+                    roots, TMAE = jacobi_iter(mat, tol, stop=stop_crit, x0=x0)
+                    roots = [float(r) for r in roots]
+                    TMAE = float(TMAE)
+                    result = f"Roots: {(roots)}\nTrue Mean Absolute Error: {TMAE}"
                 
-                text = f"Result:\n{result}"
+                text = f"Result:\n{str(result)}"
                 self.result_label.config(text=text)
 
 
         except Exception as e:
-                messagebox.showerror("Error", str(e))
+            messagebox.showerror("Matrix is singular no uniqe solution could be found", str(e))
         
 
 
@@ -405,8 +373,7 @@ class MatrixCalculator:
                     roots, TMAE = jacobi_method(mat, tol, stop_crit, x0=x0)
                                     
 
-                
-                #FUNCTION TO CONVERT RESULTS TO STRING
+
                 
 
                 #output of the rusults into the result label
@@ -416,7 +383,7 @@ class MatrixCalculator:
 
 
             except Exception as e:
-                    messagebox.showerror("Error", str(e))
+                    messagebox.showerror("Matrix is singular no uniqe solution could be found", str(e))
 
 
 

@@ -1,6 +1,8 @@
 import numpy as np
 import math 
 
+#FIXED TMAE RETURN BASED ON THE REQUIREMENT DESCRIPTION
+
 def partial_pivot(matrix):
     #break matrix into A and b
     n = matrix.shape[0]
@@ -72,14 +74,15 @@ def gauss_jordan_elimination(augmented_matrix):
     return solution, true_mae
 
 
-
-
-
-
 def gaussian_elimination_partial_pivot(A):
     A = A.astype(float) #make sure we are working with floats to avoid integer division
     num_equations = A.shape[0]
     num_columns = A.shape[1]
+
+
+    # Save original for MAE calculation
+    A_original = A[:, :-1].copy() if num_columns == num_equations + 1 else None
+    b_original = A[:, -1].copy() if num_columns == num_equations + 1 else None
     
     size = A.shape[0]
     row = 0 
@@ -130,10 +133,10 @@ def gaussian_elimination_partial_pivot(A):
             x[i] = A[i, -1] - np.dot(A[i, i+1:num_equations], x[i+1:num_equations])
             #because we have already made the entries below the pivot equal to zero, we can directly use back substitution
         
-        # TRUE MAE (solution vs true solution)
-        
-        true_x = x.copy()
-        true_mae = np.mean(np.abs(x - true_x))  # = 0.0
+        # TRUE MEAN ABSOLUTE ERROR (residual-based)
+        residual = b_original - A_original @ x
+        true_mae = np.mean(np.abs(residual))
+
         return x, true_mae
 
     return det
@@ -150,6 +153,10 @@ def gauss_seidel(matrix, tolerance, stop, x0=None):
     n = matrix.shape[0]
     A = matrix[:, :-1].astype(float)
     b = matrix[:, -1].astype(float)
+
+    # Store ORIGINAL matrix for True MAE calculation
+    A_original = matrix[:, :-1].copy()
+    b_original = matrix[:, -1].copy()
 
     # Check diagonal dominance
     if not is_diagonally_dominant(A):
@@ -227,16 +234,16 @@ def gauss_seidel(matrix, tolerance, stop, x0=None):
         elif stop == 3:
             #TRUE MAE
             error = np.mean(np.abs(new_x - true_x))
+            #print("TRUE MAE:", error)
         elif stop == 4: 
             #TRUE RMSE
             error = np.sqrt(np.mean((new_x - true_x) ** 2))
         
 
-    # compute true MAE regardless of stopping criteria
-    A_true = matrix[:, :-1]
-    b_true = matrix[:, -1]
-    true_x = np.linalg.solve(A_true, b_true)
-    true_mae = np.mean(np.abs(new_x - true_x))
+    residual = b_original - A_original @ new_x
+    true_mae = np.mean(np.abs(residual))
+
+    #print("true MAE:", true_mae)
 
     return new_x, true_mae
 
@@ -250,6 +257,11 @@ def jacobi_method(matrix, tolerance, stop, x0=None):
     n = matrix.shape[0]
     A = matrix[:, :-1].astype(float)
     b = matrix[:, -1].astype(float)
+
+    # Store ORIGINAL matrix for True MAE calculation
+    A_original = matrix[:, :-1].copy()
+    b_original = matrix[:, -1].copy()
+
 
     # Check diagonal dominance
     if not is_diagonally_dominant(A):
@@ -334,6 +346,7 @@ def jacobi_method(matrix, tolerance, stop, x0=None):
         elif stop == 3:
             #TRUE MAE
             error = np.mean(np.abs(new_x - true_x))
+            #print("TRUE MAE:", error)
         elif stop == 4: 
             #TRUE RMSE
             error = np.sqrt(np.mean((new_x - true_x) ** 2))
@@ -342,11 +355,9 @@ def jacobi_method(matrix, tolerance, stop, x0=None):
         print("maximum iterations met without convergence.")
 
 
-    # compute true MAE regardless of stopping criteria
-    A_true = matrix[:, :-1]
-    b_true = matrix[:, -1]
-    true_x = np.linalg.solve(A_true, b_true)
-    true_mae = np.mean(np.abs(new_x - true_x))
+    #Compute true MAE using RESIDUAL (b - Ax)
+    residual = b_original - A_original @ new_x
+    true_mae = np.mean(np.abs(residual))
 
     return new_x, true_mae
 

@@ -1,23 +1,23 @@
 ﻿import math
+import math
 import copy
+import numpy as np
 
-# -----------------------------
-# 1. Gaussian elimination (direct) with partial pivoting
-# -----------------------------
+
 
 def gaussian_elimination_pp(aug_matrix):
-    """
-    Gaussian direct elimination with partial pivoting on an augmented matrix [A|b].
 
-    aug_matrix : list of lists, shape n x (n+1)
-    returns    : solution vector x as a list of floats
-    """
+    
+    original_matrix = np.array(copy.deepcopy(aug_matrix))
+    A_orig = original_matrix[:, :-1]
+    b_orig = original_matrix[:, -1]
+   
     A = copy.deepcopy(aug_matrix)
     n = len(A)  # number of equations
 
     # forward elimination with partial pivoting
     for i in range(n - 1):
-        # find pivot row in column i (max absolute value)
+       
         pivot_row = i
         for r in range(i + 1, n):
             if abs(A[r][i]) > abs(A[pivot_row][i]):
@@ -47,27 +47,27 @@ def gaussian_elimination_pp(aug_matrix):
         s = sum(A[i][j] * x[j] for j in range(i + 1, n))
         x[i] = (A[i][n] - s) / A[i][i]
 
-    return x
+    # Calculate True MAEs
+    
+    solution_vector = np.array(x)
+    Ax = A_orig @ solution_vector
+    true_mae = np.mean(np.abs(b_orig - Ax))
+
+    return x, true_mae
 
 
-# -----------------------------
-# 2. Gauss-Jordan elimination with partial pivoting
-# -----------------------------
 
 def gauss_jordan_pp(aug_matrix):
-    """
-    Gauss-Jordan directed elimination with partial pivoting on [A|b].
-
-    aug_matrix : list of lists, shape n x (n+1)
-    returns    : (reduced_matrix, solution_vector)
-                 reduced_matrix is row-reduced [I|x]
-    """
+ 
+    original_matrix = np.array(copy.deepcopy(aug_matrix))
+    A_orig = original_matrix[:, :-1]
+    b_orig = original_matrix[:, -1]
     M = copy.deepcopy(aug_matrix)
-    n = len(M)        # rows
-    m = len(M[0])     # cols (should be n+1)
+    n = len(M)        
+    m = len(M[0])     
 
     for i in range(n):
-        # partial pivoting in column i
+        
         pivot_row = i
         for r in range(i, n):
             if abs(M[r][i]) > abs(M[pivot_row][i]):
@@ -76,7 +76,7 @@ def gauss_jordan_pp(aug_matrix):
         if abs(M[pivot_row][i]) < 1e-15:
             raise ValueError("No unique solution: zero pivot encountered.")
 
-        # swap pivot row into position
+        
         if pivot_row != i:
             M[i], M[pivot_row] = M[pivot_row], M[i]
 
@@ -96,18 +96,16 @@ def gauss_jordan_pp(aug_matrix):
 
     # last column is the solution
     x = [M[i][m - 1] for i in range(n)]
-    return M, x
+
+    solution_vector = np.array(x)
+    Ax = A_orig @ solution_vector
+    true_mae = np.mean(np.abs(b_orig - Ax))
+    return x, true_mae
 
 
-# -----------------------------
-# 3. Helpers for iterative methods
-# -----------------------------
 
 def is_diagonally_dominant(A):
-    """
-    Check if square matrix A is diagonally dominant by rows.
-    A : list of lists (n x n)
-    """
+   
     n = len(A)
     for i in range(n):
         diag = abs(A[i][i])
@@ -118,10 +116,7 @@ def is_diagonally_dominant(A):
 
 
 def enforce_diag_dominance(aug_matrix):
-    """
-    Try to reorder rows of augmented matrix [A|b] to make A diagonally dominant.
-    Returns new augmented matrix or None if no such ordering is found.
-    """
+   
     A = copy.deepcopy(aug_matrix)
     n = len(A)
     used = set()
@@ -145,33 +140,15 @@ def enforce_diag_dominance(aug_matrix):
     return new_rows
 
 
-# -----------------------------
-# 4. Jacobi iterative method
-#    approximate + true MAE / RMSE
-# -----------------------------
 
-def jacobi_iter(aug_matrix, tol=1e-6, max_iter=1000):
-    """
-    Jacobi iterative method on [A|b].
-
-    aug_matrix : list of lists, shape n x (n+1)
-    tol        : stopping tolerance (based on approximate RMSE)
-    max_iter   : maximum allowed iterations
-
-    returns a dict:
-        {
-          'x'          : approximate solution vector,
-          'iterations' : iteration count,
-          'approx_mae' : MAE between successive iterates,
-          'approx_rmse': RMSE between successive iterates,
-          'true_mae'   : MAE vs true solution,
-          'true_rmse'  : RMSE vs true solution
-        }
-    """
+def jacobi_iter(aug_matrix, tol=1e-6, max_iter=1000, stop=1, x0=None):
+   
     n = len(aug_matrix)
-    original = copy.deepcopy(aug_matrix)  # keep for "true" solution
+    original_np = np.array(copy.deepcopy(aug_matrix))
+    A_orig = original_np[:, :-1]
+    b_orig = original_np[:, -1]
+   
 
-    # try to enforce diagonal dominance
     A_rows = [row[:] for row in aug_matrix]
     A_only = [row[:n] for row in A_rows]
     if not is_diagonally_dominant(A_only):
@@ -179,11 +156,11 @@ def jacobi_iter(aug_matrix, tol=1e-6, max_iter=1000):
         if transformed is not None:
             A_rows = transformed
 
-    # rebuild A and b from (possibly) transformed system
+ 
     A = [row[:n] for row in A_rows]
     b = [row[n] for row in A_rows]
 
-    # normalize each row to x_i = b_i - sum_{j≠i} a_ij x_j
+   
     for i in range(n):
         diag = A[i][i]
         b[i] /= diag
@@ -191,78 +168,60 @@ def jacobi_iter(aug_matrix, tol=1e-6, max_iter=1000):
             if i != j:
                 A[i][j] /= diag
 
-    # "true" solution using direct Gaussian elimination
-    x_true = gaussian_elimination_pp(original)
+    
+    x_true = np.linalg.solve(A_orig, b_orig)
 
-    # initial guess
-    x_old = [0.0] * n
-    x_new = [1.0] * n
+    if x0 is None:
+        x_old = [0.0] * n
+    else:
+        x_old = list(x0)
+    x_new = x_old[:]
 
     iterations = 0
-    approx_rmse = float("inf")
-    approx_mae = float("inf")
+    error = float("inf")
 
-    while approx_rmse > tol and iterations < max_iter:
+    while error > tol and iterations < max_iter:
         iterations += 1
 
-        # Jacobi update uses only previous iterate (x_old)
         for i in range(n):
             s = 0.0
             for j in range(n):
                 if j != i:
                     s += A[i][j] * x_old[j]
             x_new[i] = b[i] - s
-
-        # approximate error: difference between successive iterates
+        
         diffs = [x_new[i] - x_old[i] for i in range(n)]
-        approx_mae = sum(abs(d) for d in diffs) / n
-        approx_rmse = math.sqrt(sum(d * d for d in diffs) / n)
+        
+        # Check stopping criteria
+        if stop == 1: # Approx MAE
+            error = sum(abs(d) for d in diffs) / n
+        elif stop == 2: # Approx RMSE
+            error = math.sqrt(sum(d * d for d in diffs) / n)
+        elif stop == 3: # True MAE
+            true_diffs = [x_new[i] - x_true[i] for i in range(n)]
+            error = sum(abs(d) for d in true_diffs) / n
+        elif stop == 4: # True RMSE
+            true_diffs = [x_new[i] - x_true[i] for i in range(n)]
+            error = math.sqrt(sum(d * d for d in true_diffs) / n)
 
-        # prepare for next iteration
         x_old = x_new[:]
 
-    # true error: difference vs exact solution
     true_diffs = [x_new[i] - x_true[i] for i in range(n)]
     true_mae = sum(abs(d) for d in true_diffs) / n
-    true_rmse = math.sqrt(sum(d * d for d in true_diffs) / n)
 
-    return {
-        "x": x_new,
-        "iterations": iterations,
-        "approx_mae": approx_mae,
-        "approx_rmse": approx_rmse,
-        "true_mae": true_mae,
-        "true_rmse": true_rmse,
-    }
+    return x_new, true_mae
 
 
-# -----------------------------
-# 5. Gauss-Seidel iterative method
-#    approximate + true MAE / RMSE
-# -----------------------------
 
-def gauss_seidel_iter(aug_matrix, tol=1e-6, max_iter=1000):
-    """
-    Gauss-Seidel iterative method on [A|b].
 
-    aug_matrix : list of lists, shape n x (n+1)
-    tol        : stopping tolerance (based on approximate RMSE)
-    max_iter   : maximum allowed iterations
-
-    returns a dict:
-        {
-          'x'          : approximate solution vector,
-          'iterations' : iteration count,
-          'approx_mae' : MAE between successive iterates,
-          'approx_rmse': RMSE between successive iterates,
-          'true_mae'   : MAE vs true solution,
-          'true_rmse'  : RMSE vs true solution
-        }
-    """
+def gauss_seidel_iter(aug_matrix, tol=1e-6, max_iter=1000, stop=1, x0=None):
+   
     n = len(aug_matrix)
-    original = copy.deepcopy(aug_matrix)
+    original_np = np.array(copy.deepcopy(aug_matrix))
+    A_orig = original_np[:, :-1]
+    b_orig = original_np[:, -1]
 
-    # try to enforce diagonal dominance
+    
     A_rows = [row[:] for row in aug_matrix]
     A_only = [row[:n] for row in A_rows]
     if not is_diagonally_dominant(A_only):
@@ -270,11 +229,11 @@ def gauss_seidel_iter(aug_matrix, tol=1e-6, max_iter=1000):
         if transformed is not None:
             A_rows = transformed
 
-    # build A and b
+ 
     A = [row[:n] for row in A_rows]
     b = [row[n] for row in A_rows]
 
-    # normalize each row
+   
     for i in range(n):
         diag = A[i][i]
         b[i] /= diag
@@ -282,45 +241,45 @@ def gauss_seidel_iter(aug_matrix, tol=1e-6, max_iter=1000):
             if i != j:
                 A[i][j] /= diag
 
-    # "true" solution from direct method
-    x_true = gaussian_elimination_pp(original)
+    
+    x_true = np.linalg.solve(A_orig, b_orig)
 
-    # initial guess
-    x = [1.0] * n
+    if x0 is None:
+        x = [0.0] * n
+    else:
+        x = list(x0)
     x_prev = x[:]
 
     iterations = 0
-    approx_rmse = float("inf")
-    approx_mae = float("inf")
+    error = float("inf")
 
-    while approx_rmse > tol and iterations < max_iter:
+    while error > tol and iterations < max_iter:
         iterations += 1
 
         for i in range(n):
             s = 0.0
             for j in range(n):
                 if j != i:
-                    s += A[i][j] * x[j]  # uses latest values (Gauss-Seidel)
+                    s += A[i][j] * x[j]  
             new_val = b[i] - s
             x_prev[i] = x[i]
             x[i] = new_val
 
-        # approximate error: successive iterates
         diffs = [x[i] - x_prev[i] for i in range(n)]
-        approx_mae = sum(abs(d) for d in diffs) / n
-        approx_rmse = math.sqrt(sum(d * d for d in diffs) / n)
+        
+        # Check stopping criteria
+        if stop == 1: # Approx MAE
+            error = sum(abs(d) for d in diffs) / n
+        elif stop == 2: # Approx RMSE
+            error = math.sqrt(sum(d * d for d in diffs) / n)
+        elif stop == 3: # True MAE
+            true_diffs = [x[i] - x_true[i] for i in range(n)]
+            error = sum(abs(d) for d in true_diffs) / n
+        elif stop == 4: # True RMSE
+            true_diffs = [x[i] - x_true[i] for i in range(n)]
+            error = math.sqrt(sum(d * d for d in true_diffs) / n)
 
-    # true error vs exact solution
     true_diffs = [x[i] - x_true[i] for i in range(n)]
     true_mae = sum(abs(d) for d in true_diffs) / n
-    true_rmse = math.sqrt(sum(d * d for d in true_diffs) / n)
 
-    return {
-        "x": x,
-        "iterations": iterations,
-        "approx_mae": approx_mae,
-        "approx_rmse": approx_rmse,
-        "true_mae": true_mae,
-        "true_rmse": true_rmse,
-    }
-
+    return x, true_mae
