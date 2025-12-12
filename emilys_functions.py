@@ -1,8 +1,40 @@
 import numpy as np
+import math 
+
+#FIXED TMAE RETURN BASED ON THE REQUIREMENT DESCRIPTION
+
+def partial_pivot(matrix):
+    #break matrix into A and b
+    n = matrix.shape[0]
+    A = matrix[:, :-1]
+    b = matrix[:, -1]
+    augmented = np.hstack((A, b.reshape(-1, 1))) #reconstruct augmented matrix
+
+    for i in range(n): #for each column
+        max_row = i + np.argmax(abs(augmented[i:, i])) #find row with largest absolute value in this column from row i downwards
+        if max_row != i: #if it's not the current row, swap
+            augmented[[i, max_row]] = augmented[[max_row, i]] #swap rows in augmented matrix
+    return augmented #return the row-swapped augmented matrix
+
+def is_diagonally_dominant(A):
+    n = A.shape[0]
+    for i in range(n):
+        diag = abs(A[i, i])
+        off_diag_sum = np.sum(np.abs(A[i, :])) - diag
+        if diag < off_diag_sum:
+            return False
+    return True
+
+
+
 
 def gauss_jordan_elimination(augmented_matrix):
     A = augmented_matrix.astype(float)
     num_rows, num_cols = A.shape
+
+    # Extract original A (left side) and b (right side)
+    A_orig = A[:, :-1].copy()
+    b_orig = A[:, -1].copy()
 
     #last column is b
     num_vars = num_cols - 1
@@ -28,17 +60,29 @@ def gauss_jordan_elimination(augmented_matrix):
                 factor = A[j, i] #get the factor to eliminate
                 A[j, :] = A[j, :] - factor * A[i, :] #eliminate the entry by subtracting multiple of pivot row
 
-    #identity matrix | solution
+    # Solution vector x
     solution = A[:, -1]
 
-    return A, solution
+    # Compute TRUE MAE = mean(|b - A·x|)
+    Ax = A_orig @ solution #matrix multiplication with original A
+    true_mae = np.mean(np.abs(b_orig - Ax)) #mean absolute error
 
-import numpy as np
+    #print("Solution:", solution)
+    #print("True MAE:", true_mae)
+    #print("A", A)
+
+    return solution, true_mae
+
 
 def gaussian_elimination_partial_pivot(A):
     A = A.astype(float) #make sure we are working with floats to avoid integer division
     num_equations = A.shape[0]
     num_columns = A.shape[1]
+
+
+    # Save original for MAE calculation
+    A_original = A[:, :-1].copy() if num_columns == num_equations + 1 else None
+    b_original = A[:, -1].copy() if num_columns == num_equations + 1 else None
     
     size = A.shape[0]
     row = 0 
@@ -88,44 +132,31 @@ def gaussian_elimination_partial_pivot(A):
             #last column contains constants 
             x[i] = A[i, -1] - np.dot(A[i, i+1:num_equations], x[i+1:num_equations])
             #because we have already made the entries below the pivot equal to zero, we can directly use back substitution
+        
+        # TRUE MEAN ABSOLUTE ERROR (residual-based)
+        residual = b_original - A_original @ x #matrix multiplication
+        true_mae = np.mean(np.abs(residual)) #mean absolute error
 
-        return x  
+        return x, true_mae
 
     return det
 
-import numpy as np
-import math
-
-def partial_pivot(matrix):
-    #break matrix into A and b
-    n = matrix.shape[0]
-    A = matrix[:, :-1]
-    b = matrix[:, -1]
-    augmented = np.hstack((A, b.reshape(-1, 1))) #reconstruct augmented matrix
-
-    for i in range(n): #for each column
-        max_row = i + np.argmax(abs(augmented[i:, i])) #find row with largest absolute value in this column from row i downwards
-        if max_row != i: #if it's not the current row, swap
-            augmented[[i, max_row]] = augmented[[max_row, i]] #swap rows in augmented matrix
-    return augmented #return the row-swapped augmented matrix
-
-def is_diagonally_dominant(A):
-    n = A.shape[0]
-    for i in range(n):
-        diag = abs(A[i, i])
-        off_diag_sum = np.sum(np.abs(A[i, :])) - diag
-        if diag < off_diag_sum:
-            return False
-    return True
 
 
-def gauss_seidel(matrix, tolerance, stop):
+
+
+# takes the matrix, the tolderance, stopping criteria, and starting approximation
+def gauss_seidel(matrix, tolerance, stop, x0=None):
     max_iterations=1000
 
     # Check diagonal dominance
     n = matrix.shape[0]
     A = matrix[:, :-1].astype(float)
     b = matrix[:, -1].astype(float)
+
+    # Store ORIGINAL matrix for True MAE calculation
+    A_original = matrix[:, :-1].copy()
+    b_original = matrix[:, -1].copy()
 
     # Check diagonal dominance
     if not is_diagonally_dominant(A):
@@ -157,8 +188,15 @@ def gauss_seidel(matrix, tolerance, stop):
     #initializing error, counter, and default values
     error = 100  #initialize error to a large value
     counter = 0 #counter
-    new_x = np.ones(n)
+    
+    # initialize starting approximation
+    if x0 is None:
+        new_x = np.ones(n)
+    else:
+        new_x = np.array(x0, dtype=float)
+
     old_x = np.zeros(n)
+
 
 
     #Gauss-Seidel iterative loop
@@ -196,47 +234,34 @@ def gauss_seidel(matrix, tolerance, stop):
         elif stop == 3:
             #TRUE MAE
             error = np.mean(np.abs(new_x - true_x))
+            #print("TRUE MAE:", error)
         elif stop == 4: 
             #TRUE RMSE
             error = np.sqrt(np.mean((new_x - true_x) ** 2))
         
 
-    return new_x, counter, error
+    residual = b_original - A_original @ new_x #matrix multiplication
+    true_mae = np.mean(np.abs(residual)) #mean absolute error
 
-import numpy as np
-import math
+    #print("true MAE:", true_mae)
 
-def partial_pivot(matrix):
-    #break matrix into A and b
-    n = matrix.shape[0]
-    A = matrix[:, :-1]
-    b = matrix[:, -1]
-    augmented = np.hstack((A, b.reshape(-1, 1))) #reconstruct augmented matrix
+    return new_x, true_mae
 
-    for i in range(n): #for each column
-        max_row = i + np.argmax(abs(augmented[i:, i])) #find row with largest absolute value in this column from row i downwards
-        if max_row != i: #if it's not the current row, swap
-            augmented[[i, max_row]] = augmented[[max_row, i]] #swap rows in augmented matrix
-    return augmented #return the row-swapped augmented matrix
-
-def is_diagonally_dominant(A):
-    n = A.shape[0]
-    for i in range(n):
-        diag = abs(A[i, i])
-        off_diag_sum = np.sum(np.abs(A[i, :])) - diag
-        if diag < off_diag_sum:
-            return False
-    return True
 
 
 #using the psuedocode from lecture notes
-def jacobi_method(matrix, tolerance, stop):   
+def jacobi_method(matrix, tolerance, stop, x0=None):   
     max_iterations=1000
 
     # Check diagonal dominance
     n = matrix.shape[0]
     A = matrix[:, :-1].astype(float)
     b = matrix[:, -1].astype(float)
+
+    # Store ORIGINAL matrix for True MAE calculation
+    A_original = matrix[:, :-1].copy()
+    b_original = matrix[:, -1].copy()
+
 
     # Check diagonal dominance
     if not is_diagonally_dominant(A):
@@ -273,8 +298,15 @@ def jacobi_method(matrix, tolerance, stop):
     #initializing error, counter, and default values
     error = 100  #initialize error to a large value
     counter = 0 #counter 
-    new_x = np.ones(n)
+    
+    # initialize starting approximation
+    if x0 is None:
+        new_x = np.ones(n)
+    else:
+        new_x = np.array(x0, dtype=float)
+
     old_x = np.zeros(n)
+
 
 
     #print("starting iterative loop:")
@@ -314,6 +346,7 @@ def jacobi_method(matrix, tolerance, stop):
         elif stop == 3:
             #TRUE MAE
             error = np.mean(np.abs(new_x - true_x))
+            #print("TRUE MAE:", error)
         elif stop == 4: 
             #TRUE RMSE
             error = np.sqrt(np.mean((new_x - true_x) ** 2))
@@ -321,6 +354,13 @@ def jacobi_method(matrix, tolerance, stop):
     if counter >= max_iterations:
         print("maximum iterations met without convergence.")
 
+
+    #Compute true MAE using RESIDUAL (b - Ax)
+    residual = b_original - A_original @ new_x #matrix multiplication
+    true_mae = np.mean(np.abs(residual)) #mean absolute error
+
+    return new_x, true_mae
+
+
     #print("returning final approximations and iteration count:")
     #return final approximations and iteration count
-    return new_x, counter, error
