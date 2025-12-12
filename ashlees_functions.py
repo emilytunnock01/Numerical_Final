@@ -209,6 +209,9 @@ def jacobi_iter(aug_matrix, tol=1e-6, max_iter=1000, stop=1, x0=None):
     true_diffs = [x_new[i] - x_true[i] for i in range(n)]
     true_mae = sum(abs(d) for d in true_diffs) / n
 
+    x_est = np.array(x)
+    Ax = A_orig @ x_est
+    true_mae = np.mean(np.abs(b_orig - Ax))
     return x_new, true_mae
 
 
@@ -281,5 +284,9 @@ def gauss_seidel_iter(aug_matrix, tol=1e-6, max_iter=1000, stop=1, x0=None):
 
     true_diffs = [x[i] - x_true[i] for i in range(n)]
     true_mae = sum(abs(d) for d in true_diffs) / n
-
+    
+    # At the end of gauss_seidel_iter
+    x_est = np.array(x)
+    Ax = A_orig @ x_est
+    true_mae = np.mean(np.abs(b_orig - Ax))
     return x, true_mae
