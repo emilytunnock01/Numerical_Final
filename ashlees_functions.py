@@ -6,6 +6,11 @@ import numpy as np
 
 
 def gaussian_elimination_pp(aug_matrix):
+
+    
+    original_matrix = np.array(copy.deepcopy(aug_matrix))
+    A_orig = original_matrix[:, :-1]
+    b_orig = original_matrix[:, -1]
    
     A = copy.deepcopy(aug_matrix)
     n = len(A)  # number of equations
@@ -42,12 +47,21 @@ def gaussian_elimination_pp(aug_matrix):
         s = sum(A[i][j] * x[j] for j in range(i + 1, n))
         x[i] = (A[i][n] - s) / A[i][i]
 
-    return x
+    # Calculate True MAEs
+    
+    solution_vector = np.array(x)
+    Ax = A_orig @ solution_vector
+    true_mae = np.mean(np.abs(b_orig - Ax))
+
+    return x, true_mae
 
 
 
 def gauss_jordan_pp(aug_matrix):
  
+    original_matrix = np.array(copy.deepcopy(aug_matrix))
+    A_orig = original_matrix[:, :-1]
+    b_orig = original_matrix[:, -1]
     M = copy.deepcopy(aug_matrix)
     n = len(M)        
     m = len(M[0])     
@@ -82,7 +96,11 @@ def gauss_jordan_pp(aug_matrix):
 
     # last column is the solution
     x = [M[i][m - 1] for i in range(n)]
-    return x
+
+    solution_vector = np.array(x)
+    Ax = A_orig @ solution_vector
+    true_mae = np.mean(np.abs(b_orig - Ax))
+    return x, true_mae
 
 
 
@@ -123,10 +141,12 @@ def enforce_diag_dominance(aug_matrix):
 
 
 
-def jacobi_iter(aug_matrix, tol=1e-6, max_iter=1000):
+def jacobi_iter(aug_matrix, tol=1e-6, max_iter=1000, stop=1, x0=None):
    
     n = len(aug_matrix)
-    original = copy.deepcopy(aug_matrix)  
+    original_np = np.array(copy.deepcopy(aug_matrix))
+    A_orig = original_np[:, :-1]
+    b_orig = original_np[:, -1]
    
 
     A_rows = [row[:] for row in aug_matrix]
@@ -148,54 +168,58 @@ def jacobi_iter(aug_matrix, tol=1e-6, max_iter=1000):
             if i != j:
                 A[i][j] /= diag
 
-    x_true = gaussian_elimination_pp(original)
+    
+    x_true = np.linalg.solve(A_orig, b_orig)
 
-    x_old = [0.0] * n
-    x_new = [1.0] * n
+    if x0 is None:
+        x_old = [0.0] * n
+    else:
+        x_old = list(x0)
+    x_new = x_old[:]
 
     iterations = 0
-    approx_rmse = float("inf")
-    approx_mae = float("inf")
+    error = float("inf")
 
-    while approx_rmse > tol and iterations < max_iter:
+    while error > tol and iterations < max_iter:
         iterations += 1
 
-       
         for i in range(n):
             s = 0.0
             for j in range(n):
                 if j != i:
                     s += A[i][j] * x_old[j]
             x_new[i] = b[i] - s
-
-      
-        diffs = [x_new[i] - x_old[i] for i in range(n)]
-        approx_mae = sum(abs(d) for d in diffs) / n
-        approx_rmse = math.sqrt(sum(d * d for d in diffs) / n)
-
         
+        diffs = [x_new[i] - x_old[i] for i in range(n)]
+        
+        # Check stopping criteria
+        if stop == 1: # Approx MAE
+            error = sum(abs(d) for d in diffs) / n
+        elif stop == 2: # Approx RMSE
+            error = math.sqrt(sum(d * d for d in diffs) / n)
+        elif stop == 3: # True MAE
+            true_diffs = [x_new[i] - x_true[i] for i in range(n)]
+            error = sum(abs(d) for d in true_diffs) / n
+        elif stop == 4: # True RMSE
+            true_diffs = [x_new[i] - x_true[i] for i in range(n)]
+            error = math.sqrt(sum(d * d for d in true_diffs) / n)
+
         x_old = x_new[:]
 
     true_diffs = [x_new[i] - x_true[i] for i in range(n)]
     true_mae = sum(abs(d) for d in true_diffs) / n
-    true_rmse = math.sqrt(sum(d * d for d in true_diffs) / n)
 
-    return {
-        "x": x_new,
-        "iterations": iterations,
-        "approx_mae": approx_mae,
-        "approx_rmse": approx_rmse,
-        "true_mae": true_mae,
-        "true_rmse": true_rmse,
-    }
+    return x_new, true_mae
 
 
 
 
-def gauss_seidel_iter(aug_matrix, tol=1e-6, max_iter=1000):
+def gauss_seidel_iter(aug_matrix, tol=1e-6, max_iter=1000, stop=1, x0=None):
    
     n = len(aug_matrix)
-    original = copy.deepcopy(aug_matrix)
+    original_np = np.array(copy.deepcopy(aug_matrix))
+    A_orig = original_np[:, :-1]
+    b_orig = original_np[:, -1]
 
     
     A_rows = [row[:] for row in aug_matrix]
@@ -218,17 +242,18 @@ def gauss_seidel_iter(aug_matrix, tol=1e-6, max_iter=1000):
                 A[i][j] /= diag
 
     
-    x_true = gaussian_elimination_pp(original)
+    x_true = np.linalg.solve(A_orig, b_orig)
 
-  
-    x = [1.0] * n
+    if x0 is None:
+        x = [0.0] * n
+    else:
+        x = list(x0)
     x_prev = x[:]
 
     iterations = 0
-    approx_rmse = float("inf")
-    approx_mae = float("inf")
+    error = float("inf")
 
-    while approx_rmse > tol and iterations < max_iter:
+    while error > tol and iterations < max_iter:
         iterations += 1
 
         for i in range(n):
@@ -240,22 +265,21 @@ def gauss_seidel_iter(aug_matrix, tol=1e-6, max_iter=1000):
             x_prev[i] = x[i]
             x[i] = new_val
 
-       
         diffs = [x[i] - x_prev[i] for i in range(n)]
-        approx_mae = sum(abs(d) for d in diffs) / n
-        approx_rmse = math.sqrt(sum(d * d for d in diffs) / n)
+        
+        # Check stopping criteria
+        if stop == 1: # Approx MAE
+            error = sum(abs(d) for d in diffs) / n
+        elif stop == 2: # Approx RMSE
+            error = math.sqrt(sum(d * d for d in diffs) / n)
+        elif stop == 3: # True MAE
+            true_diffs = [x[i] - x_true[i] for i in range(n)]
+            error = sum(abs(d) for d in true_diffs) / n
+        elif stop == 4: # True RMSE
+            true_diffs = [x[i] - x_true[i] for i in range(n)]
+            error = math.sqrt(sum(d * d for d in true_diffs) / n)
 
-  
     true_diffs = [x[i] - x_true[i] for i in range(n)]
     true_mae = sum(abs(d) for d in true_diffs) / n
-    true_rmse = math.sqrt(sum(d * d for d in true_diffs) / n)
 
-    return {
-        "x": x,
-        "iterations": iterations,
-        "approx_mae": approx_mae,
-        "approx_rmse": approx_rmse,
-        "true_mae": true_mae,
-        "true_rmse": true_rmse,
-    }
-
+    return x, true_mae

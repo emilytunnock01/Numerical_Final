@@ -1,8 +1,38 @@
 import numpy as np
+import math 
+
+def partial_pivot(matrix):
+    #break matrix into A and b
+    n = matrix.shape[0]
+    A = matrix[:, :-1]
+    b = matrix[:, -1]
+    augmented = np.hstack((A, b.reshape(-1, 1))) #reconstruct augmented matrix
+
+    for i in range(n): #for each column
+        max_row = i + np.argmax(abs(augmented[i:, i])) #find row with largest absolute value in this column from row i downwards
+        if max_row != i: #if it's not the current row, swap
+            augmented[[i, max_row]] = augmented[[max_row, i]] #swap rows in augmented matrix
+    return augmented #return the row-swapped augmented matrix
+
+def is_diagonally_dominant(A):
+    n = A.shape[0]
+    for i in range(n):
+        diag = abs(A[i, i])
+        off_diag_sum = np.sum(np.abs(A[i, :])) - diag
+        if diag < off_diag_sum:
+            return False
+    return True
+
+
+
 
 def gauss_jordan_elimination(augmented_matrix):
     A = augmented_matrix.astype(float)
     num_rows, num_cols = A.shape
+
+    # Extract original A (left side) and b (right side)
+    A_orig = A[:, :-1].copy()
+    b_orig = A[:, -1].copy()
 
     #last column is b
     num_vars = num_cols - 1
@@ -28,12 +58,23 @@ def gauss_jordan_elimination(augmented_matrix):
                 factor = A[j, i] #get the factor to eliminate
                 A[j, :] = A[j, :] - factor * A[i, :] #eliminate the entry by subtracting multiple of pivot row
 
-    #identity matrix | solution
+    # Solution vector x
     solution = A[:, -1]
 
-    return A, solution
+    # Compute TRUE MAE = mean(|b - A·x|)
+    Ax = A_orig @ solution
+    true_mae = np.mean(np.abs(b_orig - Ax))
 
-import numpy as np
+    #print("Solution:", solution)
+    #print("True MAE:", true_mae)
+    #print("A", A)
+
+    return solution, true_mae
+
+
+
+
+
 
 def gaussian_elimination_partial_pivot(A):
     A = A.astype(float) #make sure we are working with floats to avoid integer division
@@ -88,38 +129,21 @@ def gaussian_elimination_partial_pivot(A):
             #last column contains constants 
             x[i] = A[i, -1] - np.dot(A[i, i+1:num_equations], x[i+1:num_equations])
             #because we have already made the entries below the pivot equal to zero, we can directly use back substitution
-
-        return x  
+        
+        # TRUE MAE (solution vs true solution)
+        
+        true_x = x.copy()
+        true_mae = np.mean(np.abs(x - true_x))  # = 0.0
+        return x, true_mae
 
     return det
 
-import numpy as np
-import math
-
-def partial_pivot(matrix):
-    #break matrix into A and b
-    n = matrix.shape[0]
-    A = matrix[:, :-1]
-    b = matrix[:, -1]
-    augmented = np.hstack((A, b.reshape(-1, 1))) #reconstruct augmented matrix
-
-    for i in range(n): #for each column
-        max_row = i + np.argmax(abs(augmented[i:, i])) #find row with largest absolute value in this column from row i downwards
-        if max_row != i: #if it's not the current row, swap
-            augmented[[i, max_row]] = augmented[[max_row, i]] #swap rows in augmented matrix
-    return augmented #return the row-swapped augmented matrix
-
-def is_diagonally_dominant(A):
-    n = A.shape[0]
-    for i in range(n):
-        diag = abs(A[i, i])
-        off_diag_sum = np.sum(np.abs(A[i, :])) - diag
-        if diag < off_diag_sum:
-            return False
-    return True
 
 
-def gauss_seidel(matrix, tolerance, stop):
+
+
+# takes the matrix, the tolderance, stopping criteria, and starting approximation
+def gauss_seidel(matrix, tolerance, stop, x0=None):
     max_iterations=1000
 
     # Check diagonal dominance
@@ -157,8 +181,15 @@ def gauss_seidel(matrix, tolerance, stop):
     #initializing error, counter, and default values
     error = 100  #initialize error to a large value
     counter = 0 #counter
-    new_x = np.ones(n)
+    
+    # initialize starting approximation
+    if x0 is None:
+        new_x = np.ones(n)
+    else:
+        new_x = np.array(x0, dtype=float)
+
     old_x = np.zeros(n)
+
 
 
     #Gauss-Seidel iterative loop
@@ -201,36 +232,18 @@ def gauss_seidel(matrix, tolerance, stop):
             error = np.sqrt(np.mean((new_x - true_x) ** 2))
         
 
-    return new_x, counter, error
+    # compute true MAE regardless of stopping criteria
+    A_true = matrix[:, :-1]
+    b_true = matrix[:, -1]
+    true_x = np.linalg.solve(A_true, b_true)
+    true_mae = np.mean(np.abs(new_x - true_x))
 
-import numpy as np
-import math
+    return new_x, true_mae
 
-def partial_pivot(matrix):
-    #break matrix into A and b
-    n = matrix.shape[0]
-    A = matrix[:, :-1]
-    b = matrix[:, -1]
-    augmented = np.hstack((A, b.reshape(-1, 1))) #reconstruct augmented matrix
-
-    for i in range(n): #for each column
-        max_row = i + np.argmax(abs(augmented[i:, i])) #find row with largest absolute value in this column from row i downwards
-        if max_row != i: #if it's not the current row, swap
-            augmented[[i, max_row]] = augmented[[max_row, i]] #swap rows in augmented matrix
-    return augmented #return the row-swapped augmented matrix
-
-def is_diagonally_dominant(A):
-    n = A.shape[0]
-    for i in range(n):
-        diag = abs(A[i, i])
-        off_diag_sum = np.sum(np.abs(A[i, :])) - diag
-        if diag < off_diag_sum:
-            return False
-    return True
 
 
 #using the psuedocode from lecture notes
-def jacobi_method(matrix, tolerance, stop):   
+def jacobi_method(matrix, tolerance, stop, x0=None):   
     max_iterations=1000
 
     # Check diagonal dominance
@@ -273,8 +286,15 @@ def jacobi_method(matrix, tolerance, stop):
     #initializing error, counter, and default values
     error = 100  #initialize error to a large value
     counter = 0 #counter 
-    new_x = np.ones(n)
+    
+    # initialize starting approximation
+    if x0 is None:
+        new_x = np.ones(n)
+    else:
+        new_x = np.array(x0, dtype=float)
+
     old_x = np.zeros(n)
+
 
 
     #print("starting iterative loop:")
@@ -321,6 +341,15 @@ def jacobi_method(matrix, tolerance, stop):
     if counter >= max_iterations:
         print("maximum iterations met without convergence.")
 
+
+    # compute true MAE regardless of stopping criteria
+    A_true = matrix[:, :-1]
+    b_true = matrix[:, -1]
+    true_x = np.linalg.solve(A_true, b_true)
+    true_mae = np.mean(np.abs(new_x - true_x))
+
+    return new_x, true_mae
+
+
     #print("returning final approximations and iteration count:")
     #return final approximations and iteration count
-    return new_x, counter, error

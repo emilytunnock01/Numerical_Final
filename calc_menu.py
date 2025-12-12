@@ -1,5 +1,21 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox,filedialog, messagebox
+import numpy as np
+
+#this is outside the class so it can be used in load_matrix
+def load_matrix_from_file(filename):
+    matrix = []
+    with open(filename, 'r') as f:
+        for line in f:
+            # skip empty lines
+            if line.strip():
+                # split by comma or whitespace
+                if ',' in line:
+                    row = [float(x) for x in line.strip().split(',')]
+                else:
+                    row = [float(x) for x in line.strip().split()]
+                matrix.append(row)
+    return np.array(matrix, dtype=float)
 
 
 class MatrixCalculator:
@@ -8,82 +24,61 @@ class MatrixCalculator:
         self.root.title("Matrix Calculator")
 
 
-        # ------------------------------------------------------
-        # STUDENT DROPDOWN
-        # ------------------------------------------------------
+    #SELECTOR FOR STUDENT'S CALCULATOR
         student = ["Ashlee", "Emily"]
         self.student = tk.StringVar(value=student[0])
-
 
         student_frame = tk.Frame(root)
         student_frame.pack(pady=10)
 
-
         tk.Label(student_frame, text="Student Calculator:").pack(side=tk.LEFT)
         ttk.Combobox(student_frame, textvariable=self.student, values=student, width=15).pack(side=tk.LEFT)
 
+    #BUTTON TO LOAD MATRIX FROM FILE
+        self.load_button = tk.Button(self.root, text="Load Matrix", command=self.load_matrix)
+        self.load_button.pack()
 
-        # ------------------------------------------------------
-        # MATRIX SIZE INPUT
-        # ------------------------------------------------------
+
+    #MATRIX SIZE INPUTS
         self.rows = tk.IntVar(value=2)
         self.cols = tk.IntVar(value=2)
-
 
         size_frame = tk.Frame(root)
         size_frame.pack(pady=10)
 
-
         tk.Label(size_frame, text="Rows:").grid(row=0, column=0)
         tk.Entry(size_frame, textvariable=self.rows, width=5).grid(row=0, column=1)
-
 
         tk.Label(size_frame, text="Cols:").grid(row=0, column=2)
         tk.Entry(size_frame, textvariable=self.cols, width=5).grid(row=0, column=3)
 
-
         tk.Button(size_frame, text="Set Size", command=self.build_matrix_inputs).grid(row=0, column=4, padx=10)
 
-
-        # ------------------------------------------------------
-        # MATRIX ENTRY GRID
-        # ------------------------------------------------------
+    #MATRIX GRID PATTERN
         self.matrix_frame = tk.Frame(root)
         self.matrix_frame.pack(pady=10)
         self.inputs = []
         self.build_matrix_inputs()
 
 
-        # ------------------------------------------------------
-        # OPERATION DROPDOWN
-        # ------------------------------------------------------
+    #METHOD DROPDOWN
         operations = ["Gauss Jordan", "Gauss Partial Pivot", "Gauss Seidel", "Jacobi"]
         self.operation = tk.StringVar(value=operations[0])
 
-
         op_frame = tk.Frame(root)
         op_frame.pack(pady=10)
-
-
         tk.Label(op_frame, text="Operation:").pack(side=tk.LEFT)
-
 
         self.op_combobox = ttk.Combobox(op_frame, textvariable=self.operation, values=operations, width=15)
         self.op_combobox.pack(side=tk.LEFT)
         self.op_combobox.bind('<<ComboboxSelected>>', self.on_operation_selected)
 
 
-        # ------------------------------------------------------
-        # ITERATIVE METHOD POPUP VARIABLES
-        # ------------------------------------------------------
-        self.tolerance = tk.DoubleVar(value=0.001)
+    #ITERATION PARAMETERS
+        self.tolerance = tk.DoubleVar(value=0.001) #default tolerance
+        self.stop = tk.StringVar(value="approximate MAE") #default stopping criteria
 
-
-        # STOPPING CRITERIA AS STRING
-        self.stop = tk.StringVar(value="approximate MAE")
-
-
-        # Text-to-number mapping
+        #maps the stopping criteria to integer codes for the function calls
         self.stop_map = {
             "approximate MAE": 1,
             "approximate RMSE": 2,
@@ -91,104 +86,95 @@ class MatrixCalculator:
             "true RMSE": 4
         }
 
+        self.starting_guess = None #will hold the starting guess as a list 
+        self._iter_popup = None #reference to the popup window
 
-        self.starting_guess = None
-        self._iter_popup = None
 
-
-        # ------------------------------------------------------
-        # CALCULATE BUTTON + RESULT LABEL
-        # ------------------------------------------------------
+    #CALCULATE BUTTON
         tk.Button(root, text="Calculate", command=self.calculate).pack(pady=10)
 
-
+    #RESULT DISPLAY SECTION
         self.result_label = tk.Label(root, text="Result will appear here.")
         self.result_label.pack(pady=10)
 
 
-    # ------------------------------------------------------
-    # BUILD MATRIX INPUT GRID
-    # ------------------------------------------------------
+##### MATRIX FROM GRID ###############
+#BUILD THE MATRIX INPUT GRID
     def build_matrix_inputs(self):
-        for widget in self.matrix_frame.winfo_children():
-            widget.destroy()
+        for widget in self.matrix_frame.winfo_children(): #for each existing widget in the frame
+            widget.destroy() #remove it
 
 
-        self.inputs = []
-        r = self.rows.get()
+        self.inputs = [] #reset inputs list 
+        r = self.rows.get() #get the number of rows user typed
         c = self.cols.get()
 
 
-        for i in range(r):
-            row_list = []
-            for j in range(c):
-                entry = tk.Entry(self.matrix_frame, width=5)
-                entry.grid(row=i, column=j, padx=5, pady=5)
-                row_list.append(entry)
-            self.inputs.append(row_list)
+        for i in range(r): #for each row in the matrix
+            row_list = [] #list to hold the row's entries 
+            for j in range(c): #for each column in the matrix 
+                entry = tk.Entry(self.matrix_frame, width=5) #create an entry widget
+                entry.grid(row=i, column=j, padx=5, pady=5) #place it in the grid
+                row_list.append(entry) #add it to the row list
+            self.inputs.append(row_list) #add the row list to the inputs list
 
-
-    # ------------------------------------------------------
-    # GET MATRIX AS 2D FLOAT LIST
-    # ------------------------------------------------------
+# GET THE MATRIX FROM THE INPUT GRID AND RETURN AS 2D LIST
     def get_matrix(self):
         try:
-            return [[float(self.inputs[i][j].get())
-                     for j in range(self.cols.get())]
-                    for i in range(self.rows.get())]
+            return [[float(self.inputs[i][j].get()) #get the value from each entry
+                     for j in range(self.cols.get())] #for each column
+                    for i in range(self.rows.get())]  #for each row
         except:
-            messagebox.showerror("Error", "Matrix must contain valid numbers.")
+            messagebox.showerror("Error", "Matrix must contain valid numbers.") #if conversion fails
             return None
 
 
-    # ------------------------------------------------------
-    # MATRIX CHECKS
-    # ------------------------------------------------------
-    def is_matrix_singular(self, matrix):
-        import numpy as np
-        try:
-            np.linalg.inv(matrix)
-            return False
-        except:
-            return True
+
+#### MATRIX LOAD FROM FILE ###############
+    def load_matrix(self): #this function is called when load button is clicked
+        filename = filedialog.askopenfilename( #open file dialog
+            title="Select matrix file", 
+            filetypes=(("Text files", "*.txt"), ("All files", "*.*"))
+        )
+        if filename: #if a file was selected
+            try:
+                self.mat = load_matrix_from_file(filename)  #load the matrix from the file by calling the function above
+                # update the input grid to match the loaded matrix
+                self.rows.set(self.mat.shape[0]) #set rows and cols to match loaded matrix
+                self.cols.set(self.mat.shape[1]) 
+                self.build_matrix_inputs() #rebuild the input grid
+                # fill the entries with the loaded values
+                for i in range(self.mat.shape[0]): #for each row
+                    for j in range(self.mat.shape[1]): #for each column
+                        self.inputs[i][j].delete(0, tk.END) #clear existing entry
+                        self.inputs[i][j].insert(0, str(self.mat[i, j])) #insert loaded value
+                messagebox.showinfo("matrix Loaded") 
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load matrix:\n{e}")
 
 
-    def is_diagonally_dominant(self, matrix):
-        n = len(matrix)
-        for i in range(n):
-            row_sum = sum(abs(matrix[i][j]) for j in range(n) if j != i)
-            if abs(matrix[i][i]) < row_sum:
-                return False
-        return True
 
-
-    # ------------------------------------------------------
-    # POPUP FOR TOLERANCE, STOPPING CRITERIA, STARTING GUESS
-    # ------------------------------------------------------
-    def on_operation_selected(self, event=None):
-        op = self.operation.get()
-        if op in ("Gauss Seidel", "Jacobi"):
-            self.open_iter_popup(op)
+#POP UP FOR ITERATIVE METHOD PARAMETERS
+    def on_operation_selected(self, event=None): #when operation is selected from dropdown
+        op = self.operation.get() #get selected operation
+        if op in ("Gauss Seidel", "Jacobi"): #if it's an iterative method
+            self.open_iter_popup(op) #open the popup
         else:
-            if self._iter_popup and tk.Toplevel.winfo_exists(self._iter_popup):
-                self._iter_popup.destroy()
+            if self._iter_popup and tk.Toplevel.winfo_exists(self._iter_popup): #if popup exists
+                self._iter_popup.destroy() #close it
 
-
-    def open_iter_popup(self, op_name):
-
-
-        if self._iter_popup and tk.Toplevel.winfo_exists(self._iter_popup):
-            self._iter_popup.lift()
+    def open_iter_popup(self, op_name): #open the popup for iterative method parameters
+        if self._iter_popup and tk.Toplevel.winfo_exists(self._iter_popup): #if popup already exists
+            self._iter_popup.lift() #bring it to front 
             return
 
+        popup = tk.Toplevel(self.root) #create new popup window 
+        popup.title(f"{op_name} Parameters") #set title
+        popup.transient(self.root) #set to be on top of main window
+        popup.grab_set() #make it modal
 
-        popup = tk.Toplevel(self.root)
-        popup.title(f"{op_name} Parameters")
-        popup.transient(self.root)
-        popup.grab_set()
 
-
-        # TOLERANCE
+    #TOLERANCE INPUT
         tk.Label(popup, text="Tolerance:").grid(row=0, column=0, padx=5, pady=5)
         tk.Entry(popup, textvariable=self.tolerance, width=20).grid(row=0, column=1, padx=5, pady=5)
 
@@ -202,72 +188,83 @@ class MatrixCalculator:
             popup, textvariable=self.stop, values=criteria_options, width=20
         ).grid(row=1, column=1, padx=5, pady=5)
 
-
-        # STARTING APPROXIMATION INPUT
+    #STARTING APPROXIMATION INPUT
         tk.Label(popup, text="Starting Approximation (comma-separated):").grid(row=2, column=0, padx=5, pady=5)
 
+        start_var = tk.StringVar() #to hold the starting guess string
+        tk.Entry(popup, textvariable=start_var, width=25).grid(row=2, column=1, padx=5, pady=5) 
 
-        start_var = tk.StringVar()
-        tk.Entry(popup, textvariable=start_var, width=25).grid(row=2, column=1, padx=5, pady=5)
-
-
-        # AUTO-GENERATE BUTTON
+    #AUTO-GENERATE BUTTON
         def auto_generate():
-            n = self.rows.get()
-            start_var.set(",".join(["0"] * n))
-
+            n = self.rows.get() #number of equations 
+            start_var.set(",".join(["0"] * n)) #set starting guess to zeros
 
         tk.Button(popup, text="Auto Zero Vector", command=auto_generate).grid(row=3, column=0, columnspan=2, pady=5)
 
 
-        # SAVE BUTTON
+    #SAVE BUTTON
         def save_close():
             try:
-                float(self.tolerance.get())
+                float(self.tolerance.get()) #validate tolerance
             except:
                 messagebox.showerror("Error", "Invalid tolerance value.")
                 return
 
 
-            # Parse starting guess
-            text = start_var.get().strip()
+        #parse starting approximation
+            text = start_var.get().strip() #get the text typed
             if text:
-                try:
-                    self.starting_guess = [float(x) for x in text.split(",")]
+                try: 
+                    self.starting_guess_list = [float(x) for x in text.split(",")] #convert to list of floats
                 except:
-                    messagebox.showerror("Error", "Invalid starting approximation.")
+                    messagebox.showerror("Error", "Invalid starting approximation.") 
                     return
-            else:
-                self.starting_guess = None
+            
 
 
-            popup.destroy()
+            popup.destroy() #close the popup
 
 
-        tk.Button(popup, text="Save", command=save_close).grid(row=4, column=0, pady=10)
-        tk.Button(popup, text="Cancel", command=popup.destroy).grid(row=4, column=1, pady=10)
+        tk.Button(popup, text="Save", command=save_close).grid(row=4, column=0, pady=10) #the save button
+        tk.Button(popup, text="Cancel", command=popup.destroy).grid(row=4, column=1, pady=10) #the cancel button
 
 
-        self._iter_popup = popup
+        self._iter_popup = popup #store reference to popup
 
 
-    # ------------------------------------------------------
-    # MAIN CALCULATION
-    # ------------------------------------------------------
+#MATRIX CHECKS - PROJECT REQUIREMENTS
+    def is_matrix_singular(self, matrix):
+        import numpy as np
+        try:
+            np.linalg.inv(matrix)
+            return False
+        except:
+            return True
+
+    def is_diagonally_dominant(self, matrix):
+        n = len(matrix)
+        for i in range(n):
+            row_sum = sum(abs(matrix[i][j]) for j in range(n) if j != i)
+            if abs(matrix[i][i]) < row_sum:
+                return False
+        return True
+
+
+
+#CALCULATION HANDLER
     def calculate(self):
         import numpy as np
 
-
+        #get the selected student and operation
         student_name = self.student.get()
         mat = self.get_matrix()
         if mat is None:
             return
-
-
         mat = np.array(mat)
         op = self.operation.get()
 
-
+        
+    #check the matrix and provide warnings as needed
         # SINGULAR CHECK
         if self.is_matrix_singular(mat):
             messagebox.showwarning("Warning", "Matrix may be singular.")
@@ -278,105 +275,124 @@ class MatrixCalculator:
             messagebox.showwarning("Warning", "Matrix is not diagonally dominant.")
 
 
-        
+    #FUNCTION CALLS
         try:            
             if student_name == "Ashlee":
             
                 if op == "Gauss Jordan":
                     from ashlees_functions import gauss_jordan_pp
-                    solution = gauss_jordan_pp(mat)
-                    solution = [float(x) for x in solution]
-                    result = solution
+                    roots, TMAE = gauss_jordan_pp(mat)
+                    roots = [float(r) for r in roots]
+                    TMAE = float(TMAE)
+                    result = f"Roots: {roots}\nTrue Mean Absolute Error: {TMAE}"
                 
                     
 
                 elif op == "Gauss Partial Pivot":
                     from ashlees_functions import gaussian_elimination_pp
-                    solution = gaussian_elimination_pp(mat)
-                    solution = [float(x) for x in solution]
-                    result = solution
+                    roots, TMAE = gaussian_elimination_pp(mat)
+                    roots = [float(r) for r in roots]
+                    TMAE = float(TMAE)
+                    result = f"Roots: {roots}\nTrue Mean Absolute Error: {TMAE}"
 
                 elif op == "Gauss Seidel":
                     from ashlees_functions import gauss_seidel_iter
                     tol = float(self.tolerance.get())
-                    res = gauss_seidel_iter(mat, tol)
-                    res["x"] = [float(x) for x in res["x"]]
-                    # These are single values, not lists. No loop needed.
-                    res["iterations"] = float(res["iterations"])
-                    res["approx_mae"] = float(res["approx_mae"])
-                    res["approx_rmse"] = float(res["approx_rmse"])
-                    res["true_mae"] = float(res["true_mae"])
-                    res["true_rmse"] = float(res["true_rmse"])
-                    result = {
-                        "Solution": res["x"],
-                        "Iterations": res["iterations"],
-                        "Approx MAE": res["approx_mae"],
-                        "Approx RMSE": res["approx_rmse"],
-                        "True MAE": res["true_mae"],
-                        "True RMSE": res["true_rmse"],
-                    }
+                    stop_crit = self.stop_map[self.stop.get()]
+                    x0 = np.array(self.starting_guess_list) if self.starting_guess_list else None
+                    roots, TMAE = gauss_seidel_iter(mat, tol, stop=stop_crit, x0=x0)
+                    roots = [float(r) for r in roots]
+                    TMAE = float(TMAE)
+                    result = f"Roots: {(roots)}\nTrue Mean Absolute Error: {TMAE}"
 
                 elif op == "Jacobi":
                     from ashlees_functions import jacobi_iter
                     tol = float(self.tolerance.get())
-                    res = jacobi_iter(mat, tol)
-                    res["x"] = [float(x) for x in res["x"]]
-                    res["iterations"] = float(res["iterations"])
-                    res["approx_mae"] = float(res["approx_mae"])
-                    res["approx_rmse"] = float(res["approx_rmse"])
-                    res["true_mae"] = float(res["true_mae"])
-                    res["true_rmse"] = float(res["true_rmse"])
-                    result = {
-                        "Soltuion": res["x"],
-                        "Iterations" : res["iterations"],
-                        "Approx MAE": res["approx_mae"],
-                        "Approx RMSE": res["approx_rmse"],
-                        "True MAE": res["true_mae"],
-                        "True RMSE": res["true_rmse"],
-                    }
+                    stop_crit = self.stop_map[self.stop.get()]
+                    x0 = np.array(self.starting_guess_list) if self.starting_guess_list else None
+                    roots, TMAE = jacobi_iter(mat, tol, stop=stop_crit, x0=x0)
+                    roots = [float(r) for r in roots]
+                    TMAE = float(TMAE)
+                    result = f"Roots: {(roots)}\nTrue Mean Absolute Error: {TMAE}"
                 
-                text = f"Result:\n{result}"
+                text = f"Result:\n{str(result)}"
                 self.result_label.config(text=text)
 
 
         except Exception as e:
                 messagebox.showerror("Error", str(e))
         
-        #use the files created by emily for the calculations
+
+
+
         if student_name == "Emily":
-            
             try:
-                
+                #print("tolerance:", type(self.tolerance))
+                #print("stop:", type(self.stop))
+                #print("starting_guess:", type(self.starting_guess))
+
+                if hasattr(self, "mat") and self.mat is not None:
+                    mat = self.mat
+                else:
+                    mat = np.array(self.get_matrix())
+
+
+
+
+                #non iterative methods take only the matrix
+                #they only return the roots and TMAE
+
                 if op == "Gauss Jordan":
                     from emilys_functions import gauss_jordan_elimination
-                    result, sol = gauss_jordan_elimination(mat)
-
+                    roots, TMAE = gauss_jordan_elimination(mat)
 
                 elif op == "Gauss Partial Pivot":
                     from emilys_functions import gaussian_elimination_partial_pivot
-                    result, sol = gaussian_elimination_partial_pivot(mat)
+                    roots, TMAE = gaussian_elimination_partial_pivot(mat)
+
+
+
+
+                #iterative methods take matrix, tolerance, stopping criteria, and starting guess
+                #they return roots and TMAE
 
                 elif op == "Gauss Seidel":
                     from emilys_functions import gauss_seidel
+                    
                     tol = float(self.tolerance.get())
                     stop_crit = self.stop_map[self.stop.get()]
-                    sol = gauss_seidel(mat, tol, stop_crit)
+                    x0 = np.array(self.starting_guess_list) if self.starting_guess_list else None # use the parsed list for the starting guess
+
+                    roots, TMAE = gauss_seidel(mat, tol, stop_crit, x0=x0)
 
 
                 elif op == "Jacobi":
                     from emilys_functions import jacobi_method
                     tol = float(self.tolerance.get())
                     stop_crit = self.stop_map[self.stop.get()]
-                    sol = jacobi_method(mat, tol, stop_crit)
+                    x0 = np.array(self.starting_guess_list) if self.starting_guess_list else None
+                    
+                    roots, TMAE = jacobi_method(mat, tol, stop_crit, x0=x0)
+                                    
 
+                
+                #FUNCTION TO CONVERT RESULTS TO STRING
+                
 
-                self.result_label.config(text=f"{sol}")
+                #output of the rusults into the result label
+                self.result_label.config(
+                    text=f"Roots: {roots}\nTrue Mean Absolute Error: {TMAE}"
+                    ) 
 
 
             except Exception as e:
                     messagebox.showerror("Error", str(e))
 
-                   
+
+
+
+
+
 
 
 # --------------------------------------------
