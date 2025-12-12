@@ -267,9 +267,16 @@ class MatrixCalculator:
 
         
     #check the matrix and provide warnings as needed
+        # SINGULAR CHECK
+        A_matrix = mat[:, :-1]  # Extract coefficient matrix
+        if self.is_matrix_singular(A_matrix):
+            messagebox.showerror("Error", "Matrix is singular - no unique solution exists")
+            return
+
+
         # ITERATIVE METHODS NEED CHECKS
         if op in ("Gauss Seidel", "Jacobi") and not self.is_diagonally_dominant(mat):
-            messagebox.showwarning("Warning", "Matrix is not diagonally dominant, convergence not gaurenteed.")
+            messagebox.showwarning("Warning", "Matrix is not diagonally dominant convergence not gaurenteed.")
 
 
     #FUNCTION CALLS
@@ -318,7 +325,7 @@ class MatrixCalculator:
 
 
         except Exception as e:
-            messagebox.showerror("Matrix is singular no uniqe solution could be found", str(e))
+            messagebox.showerror("Error", str(e))
         
 
 
@@ -383,7 +390,7 @@ class MatrixCalculator:
 
 
             except Exception as e:
-                    messagebox.showerror("Matrix is singular no uniqe solution could be found", str(e))
+                    messagebox.showerror("Error", str(e))
 
 
 

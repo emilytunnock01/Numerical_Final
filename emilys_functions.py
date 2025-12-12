@@ -64,8 +64,8 @@ def gauss_jordan_elimination(augmented_matrix):
     solution = A[:, -1]
 
     # Compute TRUE MAE = mean(|b - A·x|)
-    Ax = A_orig @ solution
-    true_mae = np.mean(np.abs(b_orig - Ax))
+    Ax = A_orig @ solution #matrix multiplication with original A
+    true_mae = np.mean(np.abs(b_orig - Ax)) #mean absolute error
 
     #print("Solution:", solution)
     #print("True MAE:", true_mae)
@@ -134,8 +134,8 @@ def gaussian_elimination_partial_pivot(A):
             #because we have already made the entries below the pivot equal to zero, we can directly use back substitution
         
         # TRUE MEAN ABSOLUTE ERROR (residual-based)
-        residual = b_original - A_original @ x
-        true_mae = np.mean(np.abs(residual))
+        residual = b_original - A_original @ x #matrix multiplication
+        true_mae = np.mean(np.abs(residual)) #mean absolute error
 
         return x, true_mae
 
@@ -240,8 +240,8 @@ def gauss_seidel(matrix, tolerance, stop, x0=None):
             error = np.sqrt(np.mean((new_x - true_x) ** 2))
         
 
-    residual = b_original - A_original @ new_x
-    true_mae = np.mean(np.abs(residual))
+    residual = b_original - A_original @ new_x #matrix multiplication
+    true_mae = np.mean(np.abs(residual)) #mean absolute error
 
     #print("true MAE:", true_mae)
 
@@ -356,8 +356,8 @@ def jacobi_method(matrix, tolerance, stop, x0=None):
 
 
     #Compute true MAE using RESIDUAL (b - Ax)
-    residual = b_original - A_original @ new_x
-    true_mae = np.mean(np.abs(residual))
+    residual = b_original - A_original @ new_x #matrix multiplication
+    true_mae = np.mean(np.abs(residual)) #mean absolute error
 
     return new_x, true_mae
 
